@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dynamic AI Prompt Generator</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      background-color: #f9f9f9;
+      color: #333;
+    }
+    h1 {
+      text-align: center;
+      color: #4CAF50;
+      margin-bottom: 20px;
+    }
+    input[type="file"] {
+      display: block;
+      margin: 0 auto 20px;
+    }
+    form, #controls {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+      background: white;
+      border-radius: 10px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+    label {
+      font-weight: bold;
+      display: block;
+      margin-top: 15px;
+    }
+    select {
+      width: 100%;
+      padding: 10px;
+      margin-top: 5px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+    }
+    button {
+      margin-top: 20px;
+      padding: 10px;
+      width: 100%;
+      background: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #45a049;
+    }
+    #output {
+      margin-top: 20px;
+      width: 100%;
+      max-width: 600px;
+      margin: 20px auto;
+      padding: 15px;
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+    #output p {
+      word-wrap: break-word;
+    }
+    @media (max-width: 768px) {
+      input[type="file"] {
+        width: 100%;
+        padding: 12px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>Dynamic AI Prompt Generator</h1>
+  <input type="file" id="fileInput" accept=".xlsx, .xls">
+
+  <div id="controls" style="display: none;">
+    <div id="dynamicFields"></div>
+    <button onclick="generatePrompt()">Generate Prompt</button>
+  </div>
+
+  <div id="output"></div>
+
+  <script>
+    let database = [];
+    let headers = [];
+
+    document.getElementById('fileInput').addEventListener('change', (event) => {
+      const file = event.target.files[0];
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        database = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+        headers = database[0];
+        populateControls();
+      };
+      reader.readAsArrayBuffer(file);
+    });
+
+    function populateControls() {
+      const controls = document.getElementById('controls');
+      const dynamicArea = document.getElementById('dynamicFields');
+      dynamicArea.innerHTML = '';
+
+      headers.forEach((header, index) => {
+        const label = document.createElement('label');
+        label.textContent = header;
+
+        const select = document.createElement('select');
+        select.id = `field${index}`;
+        select.innerHTML = '<option value="">(None)</option>';
+
+        const uniqueValues = new Set();
+        database.slice(1).forEach(row => {
+          const value = row[index];
+          if (value && !uniqueValues.has(value)) {
+            uniqueValues.add(value);
+            const option = document.createElement('option');
+            option.value = value;
+            option.textContent = value;
+            select.appendChild(option);
+          }
+        });
+
+        dynamicArea.appendChild(label);
+        dynamicArea.appendChild(select);
+      });
+
+      controls.style.display = 'block';
+    }
+
+    function generatePrompt() {
+      const fields = headers.map((_, index) => {
+        const select = document.getElementById(`field${index}`);
+        return select ? select.value : '';
+      });
+
+      const combinedPrompt = fields.filter(v => v).join(', ').toLowerCase();
+      const output = document.getElementById('output');
+      output.innerHTML = `
+        <h2>Generated Prompt</h2>
+        <p><strong>Prompt Result:</strong> ${combinedPrompt || '(No prompt generated)'}</p>
+        <button id="copyBtn">Copy to Clipboard</button>
+      `;
+
+      document.getElementById('copyBtn').addEventListener('click', () => {
+        const textArea = document.createElement('textarea');
+        textArea.value = combinedPrompt;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+        alert('Prompt copied to clipboard!');
+      });
+    }
+  </script>
+</body>
+</html>
